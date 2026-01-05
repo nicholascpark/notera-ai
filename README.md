@@ -31,7 +31,14 @@ Notera uses OpenAI APIs with transparent per-conversation pricing:
 - **No-Code Builder**: 4-step wizard to create voice agents
 - **7 Industry Templates**: Legal, Healthcare, Real Estate, Home Services, Recruiting, Financial, Insurance
 - **Voice-First Design**: Natural speech with text fallback
-- **Real-Time Extraction**: [trustcall](https://github.com/hinthornw/trustcall) with RFC-6902 JSON patches for efficient data extraction
+- **trustcall Integration**: Uses [trustcall](https://github.com/hinthornw/trustcall) with RFC-6902 JSON patches for:
+  - Incremental data updates (only sends changes, not full payload each turn)
+  - Efficient conversation tracking
+  - Real-time form completion detection
+- **Customizable Personality**: Agent name, tone, greeting, and voice
+- **Drag-and-Drop Fields**: Define exactly what data to collect
+- **Multi-Language**: English, Spanish, French support
+- **Cost Tracking**: Real-time usage monitoring
 - **Customizable Personality**: Agent name, tone, greeting, and voice
 - **Drag-and-Drop Fields**: Define exactly what data to collect
 - **Multi-Language**: English, Spanish, French support
@@ -100,6 +107,8 @@ Select from 7 industry templates with pre-configured fields, or build from scrat
 Preview your agent, test conversations, then deploy to your website or phone system.
 
 ## Architecture
+
+See [Agent Architecture Diagram](./app/agents/architecture.md) for a detailed LangGraph workflow visualization.
 
 ```
                                     ┌─────────────────────────────────────┐
