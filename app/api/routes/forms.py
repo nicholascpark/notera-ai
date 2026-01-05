@@ -23,17 +23,16 @@ from app.models.form_config import (
 )
 from app.models.templates import TEMPLATES, get_template, list_templates
 from app.agents.dynamic_agent import clear_agent_cache
+from app.services.persistence import (
+    save_form_config as db_save_form_config,
+    load_form_config as db_load_form_config,
+    list_form_configs as db_list_form_configs,
+    delete_form_config as db_delete_form_config,
+)
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/forms", tags=["Forms"])
-
-
-# =============================================================================
-# In-memory storage (replace with database in production)
-# =============================================================================
-
-_form_configs: dict[str, FormConfig] = {}
 
 
 # =============================================================================
@@ -221,8 +220,8 @@ async def create_from_template(
         import uuid
         template.id = str(uuid.uuid4())
         
-        # Store
-        _form_configs[template.id] = template
+        # Save to database
+        db_save_form_config(template)
         
         logger.info(f"Created form from template: {template.id} ({industry})")
         
@@ -242,17 +241,15 @@ async def create_from_template(
 @router.get("/", response_model=List[FormConfigResponse])
 async def list_forms():
     """List all form configurations."""
-    return [
-        _form_config_to_response(config) 
-        for config in _form_configs.values()
-    ]
+    configs = db_list_form_configs(active_only=False)
+    return [_form_config_to_response(config) for config in configs]
 
 
 @router.post("/", response_model=FormConfigResponse)
 async def create_form(data: FormConfigCreate):
     """Create a new form configuration."""
     config = _create_form_config(data)
-    _form_configs[config.id] = config
+    db_save_form_config(config)
     
     logger.info(f"Created form: {config.id} ({config.name})")
     
@@ -262,19 +259,19 @@ async def create_form(data: FormConfigCreate):
 @router.get("/{form_id}", response_model=FormConfigResponse)
 async def get_form(form_id: str):
     """Get a form configuration by ID."""
-    if form_id not in _form_configs:
+    config = db_load_form_config(form_id)
+    if not config:
         raise HTTPException(status_code=404, detail="Form not found")
     
-    return _form_config_to_response(_form_configs[form_id])
+    return _form_config_to_response(config)
 
 
 @router.put("/{form_id}", response_model=FormConfigResponse)
 async def update_form(form_id: str, data: FormConfigUpdate):
     """Update a form configuration."""
-    if form_id not in _form_configs:
+    config = db_load_form_config(form_id)
+    if not config:
         raise HTTPException(status_code=404, detail="Form not found")
-    
-    config = _form_configs[form_id]
     
     # Update fields
     if data.name is not None:
@@ -314,6 +311,9 @@ async def update_form(form_id: str, data: FormConfigUpdate):
     
     config.updated_at = datetime.now()
     
+    # Save to database
+    db_save_form_config(config)
+    
     # Clear agent cache so it rebuilds with new config
     clear_agent_cache(form_id)
     
@@ -325,10 +325,11 @@ async def update_form(form_id: str, data: FormConfigUpdate):
 @router.delete("/{form_id}")
 async def delete_form(form_id: str):
     """Delete a form configuration."""
-    if form_id not in _form_configs:
+    config = db_load_form_config(form_id)
+    if not config:
         raise HTTPException(status_code=404, detail="Form not found")
     
-    del _form_configs[form_id]
+    db_delete_form_config(form_id)
     clear_agent_cache(form_id)
     
     logger.info(f"Deleted form: {form_id}")
@@ -409,18 +410,22 @@ async def get_voices():
 
 def get_form_config(form_id: str) -> Optional[FormConfig]:
     """Get form config by ID (for internal use)."""
-    return _form_configs.get(form_id)
+    return db_load_form_config(form_id)
 
 
 def get_or_create_demo_config() -> FormConfig:
     """Get or create a demo form config."""
     demo_id = "demo_config"
     
-    if demo_id not in _form_configs:
-        # Create from insurance template
-        template = get_template("insurance")
-        template.id = demo_id
-        template.business.name = "Demo Insurance Co."
-        _form_configs[demo_id] = template
+    # Try to load from database
+    config = db_load_form_config(demo_id)
+    if config:
+        return config
     
-    return _form_configs[demo_id]
+    # Create from insurance template
+    template = get_template("insurance")
+    template.id = demo_id
+    template.business.name = "Demo Insurance Co."
+    db_save_form_config(template)
+    
+    return template

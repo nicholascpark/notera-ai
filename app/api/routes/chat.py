@@ -11,8 +11,10 @@ from pydantic import BaseModel, Field
 
 from app.core.config import settings
 from app.agents import create_agent
+from app.agents.dynamic_agent import DynamicAgent, get_or_create_agent
 from app.services.voice import transcribe_audio, synthesize_speech
 from app.services.persistence import save_conversation, load_conversation, delete_conversation
+from app.api.routes.forms import get_form_config, get_or_create_demo_config
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +37,7 @@ class StartRequest(BaseModel):
     """Request to start a conversation."""
     thread_id: Optional[str] = None
     language: Optional[str] = Field(default="en", description="Language code")
+    form_id: Optional[str] = Field(default=None, description="Form configuration ID")
 
 
 class MessageRequest(BaseModel):
@@ -42,6 +45,7 @@ class MessageRequest(BaseModel):
     message: str
     thread_id: str
     language: Optional[str] = None
+    form_id: Optional[str] = Field(default=None, description="Form configuration ID")
 
 
 class VoiceRequest(BaseModel):
@@ -49,6 +53,7 @@ class VoiceRequest(BaseModel):
     audio_data: str  # base64 encoded
     thread_id: str
     language: Optional[str] = None
+    form_id: Optional[str] = Field(default=None, description="Form configuration ID")
 
 
 class ChatResponse(BaseModel):
@@ -71,7 +76,11 @@ class ChatResponse(BaseModel):
 _sessions: Dict[str, Dict[str, Any]] = {}
 
 
-def get_or_create_session(thread_id: Optional[str] = None, language: str = "en") -> tuple[str, Dict[str, Any]]:
+def get_or_create_session(
+    thread_id: Optional[str] = None, 
+    language: str = "en",
+    form_id: Optional[str] = None
+) -> tuple[str, Dict[str, Any]]:
     """Get existing session or create new one."""
     if not thread_id:
         thread_id = str(uuid.uuid4())
@@ -83,9 +92,10 @@ def get_or_create_session(thread_id: Optional[str] = None, language: str = "en")
             "chat_history": [],
             "payload": {},
             "is_form_complete": False,
-            "language": language
+            "language": language,
+            "form_id": form_id,
         }
-        logger.info(f"Created new session: {thread_id}")
+        logger.info(f"Created new session: {thread_id} (form: {form_id})")
     
     return thread_id, _sessions[thread_id]
 
@@ -102,20 +112,27 @@ def update_session(thread_id: str, updates: Dict[str, Any]) -> None:
 # ===========================================
 
 @router.post("/start", response_model=ChatResponse)
-async def start_conversation(request: StartRequest = None):
+async def start_conversation(request: StartRequest = StartRequest()):
     """Start a new conversation and get initial AI message."""
     import time
     start_time = time.time()
     
-    if request is None:
-        request = StartRequest()
-    
     language = request.language or settings.default_language
-    thread_id, session = get_or_create_session(request.thread_id, language)
+    form_id = request.form_id
+    thread_id, session = get_or_create_session(request.thread_id, language, form_id)
     
     try:
-        # Get agent
-        agent = create_agent(language=language)
+        # Determine which agent to use
+        if form_id:
+            # Use dynamic agent with specific form config
+            form_config = get_form_config(form_id)
+            if not form_config:
+                raise HTTPException(status_code=404, detail=f"Form config not found: {form_id}")
+            agent = get_or_create_agent(form_config)
+        else:
+            # Use demo config or legacy agent
+            form_config = get_or_create_demo_config()
+            agent = get_or_create_agent(form_config)
         
         # Process initial greeting
         result = await agent.process_message(
@@ -125,7 +142,7 @@ async def start_conversation(request: StartRequest = None):
         )
         
         # Get response text
-        response_text = result.get("response", "Hello! I'm here to help you file your insurance claim.")
+        response_text = result.get("response", "Hello! I'm here to help you today.")
         
         # Generate TTS audio
         audio_data = None
@@ -146,6 +163,7 @@ async def start_conversation(request: StartRequest = None):
         if hasattr(session["payload"], "model_dump"):
             session["payload"] = session["payload"].model_dump()
         session["is_form_complete"] = result.get("is_form_complete", False)
+        session["form_id"] = form_id or form_config.id
         
         processing_time = time.time() - start_time
         
@@ -160,6 +178,8 @@ async def start_conversation(request: StartRequest = None):
             processing_time=processing_time
         )
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Failed to start conversation: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -173,6 +193,7 @@ async def send_message(request: MessageRequest):
     
     thread_id, session = get_or_create_session(request.thread_id)
     language = request.language or session.get("language", "en")
+    form_id = request.form_id or session.get("form_id")
     
     try:
         # Add user message to history
@@ -183,8 +204,16 @@ async def send_message(request: MessageRequest):
         )
         session["chat_history"].append(user_message.model_dump())
         
-        # Get agent response
-        agent = create_agent(language=language)
+        # Get appropriate agent
+        if form_id:
+            form_config = get_form_config(form_id)
+            if not form_config:
+                form_config = get_or_create_demo_config()
+            agent = get_or_create_agent(form_config)
+        else:
+            form_config = get_or_create_demo_config()
+            agent = get_or_create_agent(form_config)
+        
         result = await agent.process_message(
             message=request.message,
             thread_id=thread_id,
@@ -243,6 +272,7 @@ async def send_voice_message(request: VoiceRequest):
     
     thread_id, session = get_or_create_session(request.thread_id)
     language = request.language or session.get("language", "en")
+    form_id = request.form_id or session.get("form_id")
     
     try:
         # Decode audio
@@ -265,8 +295,16 @@ async def send_voice_message(request: VoiceRequest):
         )
         session["chat_history"].append(user_message.model_dump())
         
-        # Get agent response
-        agent = create_agent(language=language)
+        # Get appropriate agent
+        if form_id:
+            form_config = get_form_config(form_id)
+            if not form_config:
+                form_config = get_or_create_demo_config()
+            agent = get_or_create_agent(form_config)
+        else:
+            form_config = get_or_create_demo_config()
+            agent = get_or_create_agent(form_config)
+        
         result = await agent.process_message(
             message=transcribed_text,
             thread_id=thread_id,

@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.api.routes import chat_router, health_router, forms_router, settings_router
-from app.services.persistence import init_database
+from app.services.persistence import init_database, init_form_database
 
 # Configure logging
 logging.basicConfig(
@@ -28,10 +28,14 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info(f"Starting {settings.app_name} v{settings.app_version}")
     
-    # Initialize database
+    # Initialize databases
     if settings.persistence_enabled:
         init_database()
-        logger.info("Database initialized")
+        logger.info("Conversation database initialized")
+    
+    # Always initialize form database
+    init_form_database()
+    logger.info("Form configuration database initialized")
     
     # Validate configuration
     errors = settings.validate_config()

@@ -43,8 +43,8 @@ Notera uses OpenAI APIs with transparent per-conversation pricing:
 
 ```bash
 # Clone the repository
-git clone https://github.com/nicholascpark/Claims-Handler-Agent-v1.git
-cd Claims-Handler-Agent-v1
+git clone https://github.com/nicholascpark/notera-ai.git
+cd notera-ai
 
 # Copy environment file and add your OpenAI key
 cp .env.example .env
@@ -62,8 +62,8 @@ Open http://localhost:3000 and start building your first agent!
 
 ```bash
 # Clone and setup
-git clone https://github.com/nicholascpark/Claims-Handler-Agent-v1.git
-cd Claims-Handler-Agent-v1
+git clone https://github.com/nicholascpark/notera-ai.git
+cd notera-ai
 
 # Backend
 python -m venv venv
