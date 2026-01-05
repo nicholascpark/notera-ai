@@ -67,7 +67,7 @@ Create `render.yaml`:
 ```yaml
 services:
   - type: web
-    name: notera-voice-agent
+    name: notera-ai
     env: python
     buildCommand: |
       pip install -r requirements.txt

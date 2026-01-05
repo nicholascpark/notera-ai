@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
-"""
-Notera Voice Agent - Run Script
-
-Start the backend server.
-"""
+"""Notera AI - Run Script"""
 
 import uvicorn
 from app.core.config import settings
@@ -11,8 +7,8 @@ from app.core.config import settings
 if __name__ == "__main__":
     print(f"""
 ╔═══════════════════════════════════════════════════════════════╗
-║                   Notera Voice Agent                          ║
-║            Multi-Modal Voice AI Claims Intake                 ║
+║                        Notera AI                              ║
+║              Conversational Form Builder                      ║
 ╚═══════════════════════════════════════════════════════════════╝
 
 Starting server...

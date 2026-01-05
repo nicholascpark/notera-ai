@@ -1,7 +1,5 @@
 """
-FastAPI Application
-
-Main entry point for the Notera Voice Agent API.
+Notera AI - FastAPI Application
 """
 
 import logging

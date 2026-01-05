@@ -160,7 +160,7 @@ Preview your agent, test conversations, then deploy to your website or phone sys
 ## Project Structure
 
 ```
-Claims-Handler-Agent-v1/
+notera-ai/
 ├── app/                          # Backend (FastAPI)
 │   ├── api/
 │   │   ├── main.py              # App factory

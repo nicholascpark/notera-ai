@@ -1,7 +1,8 @@
 {
-  "name": "notera-voice-agent",
+  "name": "notera-ai",
   "private": true,
-  "version": "1.0.0",
+  "version": "2.0.0",
+  "description": "No-code AI conversational form builder",
   "type": "module",
   "scripts": {
     "dev": "vite",

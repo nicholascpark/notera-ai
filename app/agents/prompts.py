@@ -1,8 +1,10 @@
 """
 Agent Prompts
 
-Multi-language system prompts for the FNOL voice agent.
+Multi-language system prompts for conversational agents.
 Supports multiple languages for international deployments.
+Note: Legacy FNOL prompts kept for backward compatibility.
+For new forms, use the dynamic prompt generator.
 """
 
 from datetime import datetime

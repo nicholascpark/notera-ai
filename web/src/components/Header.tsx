@@ -9,10 +9,10 @@ export const Header = () => {
         </div>
         <div>
           <h1 className="font-outfit font-bold text-xl text-slate-900 leading-tight">
-            Notera Voice Agent
+            Notera AI
           </h1>
           <p className="text-xs font-medium text-slate-500 tracking-wide uppercase">
-            Claims Intake v1.0
+            Conversational Form Builder
           </p>
         </div>
       </div>
